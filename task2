@@ -1,0 +1,98 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Load the dataset with a different encoding
+data = pd.read_csv("IMDb Movies India.csv", encoding='ISO-8859-1')
+
+# Display basic information about the dataset
+print(data.info())
+print(data.head())
+
+# Check for missing values
+print(data.isnull().sum())
+
+# Drop duplicates
+data.drop_duplicates(inplace=True)
+
+# Drop unnecessary columns
+data.drop(columns=['Name', 'Duration'], axis=1, inplace=True)
+print(data.head())
+
+# Fill missing numeric values with the median
+for column in data.select_dtypes(include=['float64', 'int64']).columns:
+    data[column] = data[column].fillna(data[column].median())
+
+# Fill missing categorical values with the mode
+for column in data.select_dtypes(include=['object']).columns:
+    data[column] = data[column].fillna(data[column].mode()[0])
+
+# Convert 'Year' column to numeric and take absolute value
+data['Year'] = pd.to_numeric(data['Year'], errors='coerce').fillna(0).astype(int)
+data['Year'] = abs(data['Year'])
+
+# Clean and convert 'Votes' column to numeric
+data['Votes'] = data['Votes'].str.replace(',', '').str.extract('(\d+)').astype(float).fillna(0).astype(int)
+print(data.isnull().sum())
+
+print(data.info())
+print(data.head())
+
+# Group and transform categorical columns
+data['Genre'] = round(data.groupby('Genre')['Rating'].transform('mean'), 1)
+data['Votes'] = round(data.groupby('Votes')['Rating'].transform('mean'), 1)
+data['Director'] = round(data.groupby('Director')['Rating'].transform('mean'), 1)
+data['Actor 1'] = round(data.groupby('Actor 1')['Rating'].transform('mean'), 1)
+data['Actor 2'] = round(data.groupby('Actor 2')['Rating'].transform('mean'), 1)
+data['Actor 3'] = round(data.groupby('Actor 3')['Rating'].transform('mean'), 1)
+print(data.head())
+
+# Plot the distribution of movie ratings
+plt.figure(figsize=(12, 8))
+sns.histplot(data['Rating'], bins=20, kde=True)
+plt.title('Distribution of Movie Rating')
+plt.xlabel('Rating')
+plt.ylabel('Frequency')
+plt.show()
+
+# Define features and target
+X = data.drop(columns=['Rating'])
+y = data['Rating']
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train the model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# Predict on the test set
+y_pred = model.predict(X_test)
+
+# Evaluate the model
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+print(f'Mean Squared Error: {mse}')
+print(f'R-squared: {r2}')
+
+# Predict ratings for new movies
+new_movies = pd.DataFrame({
+    'Genre': [data['Genre'].mode()[0], data['Genre'].mode()[0]],  # Using mode as placeholder
+    'Director': [data['Director'].mode()[0], data['Director'].mode()[0]],  
+    'Actor 1': [data['Actor 1'].mode()[0], data['Actor 1'].mode()[0]],  
+    'Actor 2': [data['Actor 2'].mode()[0], data['Actor 2'].mode()[0]],  
+    'Actor 3': [data['Actor 3'].mode()[0], data['Actor 3'].mode()[0]],  
+    'Year': [2024, 2024],
+    'Votes': [0, 0]  # Placeholder values
+})
+
+# Ensure the new_movies DataFrame columns match the order and names of X_train
+new_movies = new_movies[X_train.columns]
+
+new_ratings = model.predict(new_movies)
+print(f"Predicted Ratings: {new_ratings}")
